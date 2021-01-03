@@ -68,7 +68,7 @@ public final class MultipartParser {
 		if (boundaryString == null)
 			throw new NoBoundary();
 
-		boundaryString = "--" + boundaryString + "--";
+		boundaryString = "--" + boundaryString;
 
 		byte[] boundary = boundaryString.getBytes(US_ASCII);
 

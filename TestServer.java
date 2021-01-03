@@ -8,7 +8,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
 
-public final class Server implements HttpHandler {
+public final class TestServer implements HttpHandler {
 
 	@Override
 	public void handle(HttpExchange x) throws IOException {
@@ -56,7 +56,7 @@ public final class Server implements HttpHandler {
 			new InetSocketAddress("localhost", 8000);
 
 		HttpServer server = HttpServer.create(address, 30);
-		server.createContext("/", new Server());
+		server.createContext("/", new TestServer());
 		server.start();
 
 	}

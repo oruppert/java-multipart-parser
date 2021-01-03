@@ -12,4 +12,4 @@ test: compile
 
 # run test server
 test-server: compile
-	java Server
+	java TestServer
