@@ -25,6 +25,7 @@
  */
 
 
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
 import java.io.File;
@@ -189,6 +190,7 @@ public final class MultipartParser {
 
 			try {
 				out = new FileOutputStream(item.file);
+				out = new BufferedOutputStream(out);
 				copyToBoundary(in, out, boundary);
 				result.add(item);
 				in.skip(boundary.length);

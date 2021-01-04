@@ -1,6 +1,7 @@
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -49,7 +50,7 @@ public final class TestServer implements HttpHandler {
 
 		MultipartParser.parse(
 			tempDir,
-			x.getRequestBody(),
+			new BufferedInputStream(x.getRequestBody()),
 			x.getRequestHeaders().getFirst("Content-Type"));
 
 
