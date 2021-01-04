@@ -51,11 +51,14 @@ public final class MultipartParser {
 	/**
 	 * Parses a multipart request.
 	 * @return a list of multipart items.
+	 * @param tempDir the directory to create item files in.
+	 * @param in the input stream to read from.
+	 * @param contentType the content type http header.
 	 */
-	public static List<Item> parse(InputStream in, String contentType)
-		throws IOException{
-
-		List<Item> result = new ArrayList<Item>();
+	public static List<Item> parse(
+		File tempDir,
+		InputStream in,
+		String contentType) throws IOException {
 
 		if (contentType == null)
 			throw new NoContentType();
@@ -63,34 +66,73 @@ public final class MultipartParser {
 		if (!contentType.startsWith("multipart/form-data"))
 			throw new WrongContentType();
 
-		String boundaryString = getBoundary(contentType);
+		/*
+		 * Extract boundary from contentType.
+		 */
+		String boundaryString = null;
+
+		for (String part : contentType.split(";"))
+			if (part.trim().startsWith("boundary="))
+				boundaryString =  part.trim().substring(9);
 
 		if (boundaryString == null)
 			throw new NoBoundary();
 
-		boundaryString = "--" + boundaryString;
+		boundaryString = "\r\n--" + boundaryString;
 
 		byte[] boundary = boundaryString.getBytes(US_ASCII);
 
-		PushbackInputStream pi = new PushbackInputStream(in, boundary.length);
 
-		while (true) {
-			String line = readLine(pi);
-			System.out.println(line);
-			if (line.isEmpty())
-				break;
+		return parse(
+			tempDir,
+			new PushbackInputStream(in, boundary.length),
+			boundary);
+
+	}
+
+	/**
+	 * Parses a multipart request.
+	 * @return a list of multipart items.
+	 * @param tempDir the directory where item files are created.
+	 * @param in the {@link PushbackInputStream} to read from.
+	 * @param boundary the boundary array.
+	 */
+	private static List<Item> parse(
+		File tempDir,
+		PushbackInputStream in,
+		byte[] boundary) throws IOException {
+
+		List<Item> result = new ArrayList<Item>();
+
+	start:
+		for (;;) {
+
+			String fieldName = "";
+			String uploadName = "";
+
+			/**
+			 * Parse headers
+			 */
+			while (true) {
+				String line = readLine(in);
+				if (line.equals("--"))
+					break start;
+				System.out.println(line);
+				if (line.isEmpty())
+					break;
+
+			}
+
+			ByteArrayOutputStream out = new ByteArrayOutputStream();
+			copyToBoundary(in, out, boundary);
+			in.skip(boundary.length);
+			System.out.println(new String(out.toByteArray()));
 
 		}
-
-		ByteArrayOutputStream out = new ByteArrayOutputStream();
-		copyToBoundary(pi, out, boundary);
-		System.out.println(new String(out.toByteArray()));
-
 
 		return result;
 
 	}
-
 
 	/**
 	 * A multipart item.
@@ -217,15 +259,6 @@ public final class MultipartParser {
 		return new String(out.toByteArray(), US_ASCII);
 	}
 
-	/**
-	 * Returns the content type boundary string or null if there
-	 * is no such thing.
-	 */
-	static String getBoundary(String contentType) {
-		for (String part : contentType.split(";"))
-			if (part.trim().startsWith("boundary="))
-				return part.trim().substring(9);
-		return null;
-	}
+
 
 }

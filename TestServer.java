@@ -43,7 +43,10 @@ public final class TestServer implements HttpHandler {
 
 	private static void handlePost(HttpExchange x) throws IOException {
 
+		File tempDir = new File(".");
+
 		MultipartParser.parse(
+			tempDir,
 			x.getRequestBody(),
 			x.getRequestHeaders().getFirst("Content-Type"));
 
