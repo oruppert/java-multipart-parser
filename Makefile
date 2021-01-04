@@ -1,15 +1,13 @@
-all: compile
+all: test
+
+test: compile
+	java -cp '.:lib/*' Test
 
 compile:
-	javac *.java
+	javac -cp 'lib/*' *.java
 
 clean:
 	rm -rf temp *.class
 
-# run test cases
-test: compile
-	java Test
 
-# run test server
-test-server: compile
-	java TestServer
+

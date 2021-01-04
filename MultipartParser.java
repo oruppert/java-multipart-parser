@@ -86,6 +86,7 @@ public final class MultipartParser {
 
 	/**
 	 * Parses a multipart request.
+	 * Make sure {@link InputStream} is buffered.
 	 * @return a list of multipart items.
 	 * @param tempDir the directory to create item files in.
 	 * @param in the input stream to read from.
@@ -130,7 +131,8 @@ public final class MultipartParser {
 			 * Cleanup on error.
 			 */
 			for (Item item : result)
-				item.file.delete();
+				if (item.file != null)
+					item.file.delete();
 			throw new RuntimeException(e);
 		}
 
@@ -150,20 +152,18 @@ public final class MultipartParser {
 		List<Item> result) throws IOException {
 
 
-	start:
 		for (;;) {
 
 			String fieldName = null;
 			String uploadName = null;
 
+
 			/*
 			 * Parse headers
 			 */
 			while (true) {
-				String line = readLine(in);
 
-				if (line.equals("--"))
-					break start;
+				String line = readLine(in);
 
 				if (line.isEmpty())
 					break;
@@ -193,7 +193,12 @@ public final class MultipartParser {
 				out = new BufferedOutputStream(out);
 				copyToBoundary(in, out, boundary);
 				result.add(item);
-				in.skip(boundary.length);
+				if (boundary.length != in.skip(boundary.length))
+					throw new IOException("Skip failed");
+
+				String line = readLine(in);
+				if (line.equals("--"))
+					return;
 			} finally {
 				if (out != null)
 					out.close();
@@ -251,9 +256,9 @@ public final class MultipartParser {
 	/**
 	 * Returns the file type as a lower case string.  The file
 	 * type is everything after the last dot.  If the file type
-	 * could not be determined, return {@link DEFAULT_FILE_TYPE}.
-	 * @return the file type or {@link DEFAULT_FILE_TYPE}.
-	 * @param name the filename in question.
+	 * could not be determined, return {@code DEFAULT_FILE_TYPE}.
+	 * @return the file type or {@code DEFAULT_FILE_TYPE}.
+	 * @param filename the filename in question.
 	 */
 	static String getFileType(String filename) {
 
@@ -265,7 +270,15 @@ public final class MultipartParser {
 		if (index == -1)
 			return DEFAULT_FILE_TYPE;
 
-		return filename.substring(index + 1).toLowerCase();
+		String type = filename.substring(index + 1).toLowerCase();
+
+		/*
+		 * Type length to long, return default.
+		 */
+		if (type.length() > 10)
+			return DEFAULT_FILE_TYPE;
+
+		return type;
 	}
 
 	/**
