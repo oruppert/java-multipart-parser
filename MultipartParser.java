@@ -137,10 +137,10 @@ public final class MultipartParser {
 
 	/**
 	 * Parses a multipart request.
-	 * @return a list of multipart items.
 	 * @param tempDir the directory where item files are created.
 	 * @param in the {@link PushbackInputStream} to read from.
 	 * @param boundary the boundary array.
+	 * @param result the list to append items to.
 	 */
 	private static void parse(
 		File tempDir,
@@ -190,8 +190,8 @@ public final class MultipartParser {
 			try {
 				out = new FileOutputStream(item.file);
 				copyToBoundary(in, out, boundary);
+				result.add(item);
 				in.skip(boundary.length);
-				continue;
 			} finally {
 				if (out != null)
 					out.close();
