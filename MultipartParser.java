@@ -1,10 +1,13 @@
 import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PushbackInputStream;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
@@ -49,6 +52,11 @@ public final class MultipartParser {
 	private static final Charset UTF_8 = Charset.forName("UTF-8");
 
 	/**
+	 * The default file type.
+	 */
+	private static final String DEFAULT_FILE_TYPE = "unknown";
+
+	/**
 	 * Parses a multipart request.
 	 * @return a list of multipart items.
 	 * @param tempDir the directory to create item files in.
@@ -82,11 +90,21 @@ public final class MultipartParser {
 
 		byte[] boundary = boundaryString.getBytes(US_ASCII);
 
-
-		return parse(
-			tempDir,
-			new PushbackInputStream(in, boundary.length),
-			boundary);
+		List<Item> result = new ArrayList<Item>();
+		try {
+			parse(tempDir,
+			      new PushbackInputStream(in, boundary.length),
+			      boundary,
+			      result);
+			return result;
+		} catch (Exception e) {
+			/*
+			 * Cleanup on error.
+			 */
+			for (Item item : result)
+				item.file.delete();
+			throw new RuntimeException(e);
+		}
 
 	}
 
@@ -97,40 +115,62 @@ public final class MultipartParser {
 	 * @param in the {@link PushbackInputStream} to read from.
 	 * @param boundary the boundary array.
 	 */
-	private static List<Item> parse(
+	private static void parse(
 		File tempDir,
 		PushbackInputStream in,
-		byte[] boundary) throws IOException {
+		byte[] boundary,
+		List<Item> result) throws IOException {
 
-		List<Item> result = new ArrayList<Item>();
 
 	start:
 		for (;;) {
 
-			String fieldName = "";
-			String uploadName = "";
+			String fieldName = null;
+			String uploadName = null;
 
-			/**
+			/*
 			 * Parse headers
 			 */
 			while (true) {
 				String line = readLine(in);
+
 				if (line.equals("--"))
 					break start;
-				System.out.println(line);
+
 				if (line.isEmpty())
 					break;
 
+				if (!line.startsWith("Content-Disposition: "))
+					continue;
+
+				for (String part : line.split(";")) {
+
+					part = part.trim();
+
+					if (part.startsWith("name="))
+						fieldName = getFieldValue(part);
+
+					if (part.startsWith("filename="))
+						uploadName = getFieldValue(part);
+
+				}
 			}
 
-			ByteArrayOutputStream out = new ByteArrayOutputStream();
-			copyToBoundary(in, out, boundary);
-			in.skip(boundary.length);
-			System.out.println(new String(out.toByteArray()));
+			Item item = createItem(tempDir, fieldName, uploadName);
+
+			OutputStream out = null;
+
+			try {
+				out = new FileOutputStream(item.file);
+				copyToBoundary(in, out, boundary);
+				in.skip(boundary.length);
+				continue;
+			} finally {
+				if (out != null)
+					out.close();
+			}
 
 		}
-
-		return result;
 
 	}
 
@@ -181,11 +221,21 @@ public final class MultipartParser {
 
 	/**
 	 * Returns the file type as a lower case string.  The file
-	 * type is everything after the last dot.
+	 * type is everything after the last dot.  If the file type
+	 * could not be determined, return {@link DEFAULT_FILE_TYPE}.
+	 * @return the file type or {@link DEFAULT_FILE_TYPE}.
 	 * @param name the filename in question.
 	 */
 	static String getFileType(String filename) {
+
+		if (filename == null)
+			return DEFAULT_FILE_TYPE;
+
 		int index = filename.lastIndexOf('.');
+
+		if (index == -1)
+			return DEFAULT_FILE_TYPE;
+
 		return filename.substring(index + 1).toLowerCase();
 	}
 
@@ -258,6 +308,41 @@ public final class MultipartParser {
 		}
 		return new String(out.toByteArray(), US_ASCII);
 	}
+
+
+	/**
+	 * Given a field, extract its value.
+	 * E.g. <code>"name=\"value\"" -&gt; "value"</code>
+	 * @param field the field in question.
+	 * @return the field value.
+	 */
+	private static String getFieldValue(String field) {
+
+		String[] parts = field.split("=", 2);
+
+		if (parts.length != 2)
+			return null;
+
+		String value = parts[1].trim();
+
+		if (!value.startsWith("\""))
+			return value;
+
+		if (value.startsWith("\""))
+			value = value.substring(1);
+
+		if (value.endsWith("\""))
+			value = value.substring(0, value.length() -1);
+
+		try {
+			return URLDecoder.decode(value, "UTF-8");
+		} catch (UnsupportedEncodingException e) {
+			throw new RuntimeException(e);
+		}
+
+
+	}
+
 
 
 

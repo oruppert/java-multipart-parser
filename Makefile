@@ -4,7 +4,7 @@ compile:
 	javac *.java
 
 clean:
-	rm -f *.class
+	rm -rf temp *.class
 
 # run test cases
 test: compile

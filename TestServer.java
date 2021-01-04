@@ -43,7 +43,9 @@ public final class TestServer implements HttpHandler {
 
 	private static void handlePost(HttpExchange x) throws IOException {
 
-		File tempDir = new File(".");
+		File tempDir = new File("temp");
+
+		tempDir.mkdirs();
 
 		MultipartParser.parse(
 			tempDir,
